@@ -1,56 +1,64 @@
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import ttk, messagebox
 from datetime import date
 
+# Светлая тема — максимальная читаемость на проекторе и в отчете
+ctk.set_appearance_mode("light")
 
-class StudentDialog(tk.Toplevel):
+
+class StudentDialog(ctk.CTkToplevel):
     def __init__(self, parent, db, student_data=None, on_success=None):
         super().__init__(parent)
         self.db = db
         self.student_data = student_data
         self.on_success = on_success
 
-        self.title("Редактировать студента" if student_data else "Новый студент")
-        self.geometry("380x230")
+        self.title("Редактировать ученика" if student_data else "Новый ученик")
+        self.geometry("400x330")
         self.resizable(False, False)
         self.grab_set()
         self.init_ui()
 
     def init_ui(self):
-        frame = ttk.Frame(self, padding=15)
-        frame.pack(fill=tk.BOTH, expand=True)
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        ttk.Label(frame, text="ФИО студента:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.ent_fio = ttk.Entry(frame, width=30)
-        self.ent_fio.grid(row=0, column=1, pady=5)
+        ctk.CTkLabel(frame, text="ФИО ученика:", font=("Segoe UI", 13, "bold")).pack(anchor="w")
+        self.ent_fio = ctk.CTkEntry(frame, width=360, placeholder_text="Иванов Иван Иванович")
+        self.ent_fio.pack(pady=(2, 10))
 
-        ttk.Label(frame, text="Телефон:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.ent_phone = ttk.Entry(frame, width=30)
-        self.ent_phone.grid(row=1, column=1, pady=5)
+        ctk.CTkLabel(frame, text="Телефон:", font=("Segoe UI", 13, "bold")).pack(anchor="w")
+        self.ent_phone = ctk.CTkEntry(frame, width=360, placeholder_text="+79001112233")
+        self.ent_phone.pack(pady=(2, 10))
 
-        ttk.Label(frame, text="Паспортные данные:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.ent_passport = ttk.Entry(frame, width=30)
-        self.ent_passport.grid(row=2, column=1, pady=5)
+        ctk.CTkLabel(frame, text="Паспортные данные:", font=("Segoe UI", 13, "bold")).pack(anchor="w")
+        self.ent_passport = ctk.CTkEntry(frame, width=360, placeholder_text="3418 123456")
+        self.ent_passport.pack(pady=(2, 10))
 
-        ttk.Label(frame, text="Учебная группа:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ctk.CTkLabel(frame, text="Учебная группа:", font=("Segoe UI", 13, "bold")).pack(anchor="w")
         self.groups = self.db.get_groups_list()
-        self.group_map = {g: g for g in self.groups}
-        self.cmb_group = ttk.Combobox(frame, values=list(self.group_map.keys()), state="readonly", width=27)
-        self.cmb_group.grid(row=3, column=1, pady=5)
+        self.group_map = {}
+        for g_id, g_name, _ in self.groups:
+            self.group_map[g_name] = g_id
+
+        group_names = list(self.group_map.keys()) or ["Нет групп"]
+        self.cmb_group = ctk.CTkComboBox(frame, values=group_names, width=360, state="readonly")
+        self.cmb_group.pack(pady=(2, 15))
         if self.groups:
-            self.cmb_group.current(0)
+            self.cmb_group.set(group_names)
 
         if self.student_data:
-            self.ent_fio.insert(0, self.student_data)
-            self.ent_phone.insert(0, self.student_data or "")
-            self.ent_passport.insert(0, self.student_data or "")
-            if self.student_data in self.group_map:
-                self.cmb_group.set(self.student_data)
+            _, fio, phone, passport, group_name, _ = self.student_data
+            self.ent_fio.insert(0, fio)
+            self.ent_phone.insert(0, phone or "")
+            self.ent_passport.insert(0, passport or "")
+            if group_name in self.group_map:
+                self.cmb_group.set(group_name)
 
-        btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=4, column=0, columnspan=2, pady=15)
-        ttk.Button(btn_frame, text="Сохранить", command=self.save_data).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="Отмена", command=self.destroy).pack(side=tk.LEFT, padx=5)
+        btn_box = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_box.pack(fill="x")
+        ctk.CTkButton(btn_box, text="Сохранить", fg_color="#1D4ED8", hover_color="#1E40AF", command=self.save_data).pack(side="left", expand=True, padx=(0, 5))
+        ctk.CTkButton(btn_box, text="Отмена", fg_color="#64748B", hover_color="#475569", command=self.destroy).pack(side="right", expand=True, padx=(5, 0))
 
     def save_data(self):
         fio = self.ent_fio.get().strip()
@@ -64,7 +72,8 @@ class StudentDialog(tk.Toplevel):
 
         try:
             if self.student_data:
-                self.db.update_student(self.student_data, fio, phone, passport, group_id)
+                st_id, _, _, _, _, _ = self.student_data
+                self.db.update_student(st_id, fio, phone, passport, group_id)
             else:
                 self.db.add_student(fio, phone, passport, group_id)
             if self.on_success:
@@ -74,38 +83,85 @@ class StudentDialog(tk.Toplevel):
             messagebox.showerror("Ошибка БД", str(e), parent=self)
 
 
-class LoginWindow(tk.Tk):
-    def __init__(self, db):
-        super().__init__()
+class RegisterDialog(ctk.CTkToplevel):
+    def __init__(self, parent, db):
+        super().__init__(parent)
         self.db = db
-        self.title("DriveFlow — Авторизация")
-        self.geometry("350x230")
+        self.title("DriveFlow — Регистрация")
+        self.geometry("380x300")
         self.resizable(False, False)
-
-        style = ttk.Style(self)
-        if "clam" in style.theme_names():
-            style.theme_use("clam")
+        self.grab_set()
         self.init_ui()
 
     def init_ui(self):
-        frame = ttk.Frame(self, padding=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        ttk.Label(frame, text="DriveFlow", font=("Segoe UI", 18, "bold"), foreground="#1E88E5").pack()
-        ttk.Label(frame, text="Система автоматизации автошколы", foreground="#64748B").pack(pady=(0, 15))
+        ctk.CTkLabel(frame, text="Регистрация сотрудника", font=("Segoe UI", 18, "bold"), text_color="#1D4ED8").pack(pady=(0, 15))
 
-        form = ttk.Frame(frame)
-        form.pack(fill=tk.X)
+        self.ent_fio = ctk.CTkEntry(frame, width=340, placeholder_text="Ваше ФИО")
+        self.ent_fio.pack(pady=6)
 
-        ttk.Label(form, text="Логин:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.ent_login = ttk.Entry(form, width=28)
-        self.ent_login.grid(row=0, column=1, pady=5)
+        self.ent_login = ctk.CTkEntry(frame, width=340, placeholder_text="Придумайте логин")
+        self.ent_login.pack(pady=6)
 
-        ttk.Label(form, text="Пароль:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.ent_password = ttk.Entry(form, width=28, show="*")
-        self.ent_password.grid(row=1, column=1, pady=5)
+        self.ent_password = ctk.CTkEntry(frame, width=340, placeholder_text="Придумайте пароль", show="*")
+        self.ent_password.pack(pady=6)
 
-        ttk.Button(frame, text="Войти в систему", command=self.handle_login).pack(pady=15, fill=tk.X)
+        btn_box = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_box.pack(fill="x", pady=(15, 0))
+        ctk.CTkButton(btn_box, text="Создать аккаунт", fg_color="#1D4ED8", hover_color="#1E40AF", command=self.do_register).pack(side="left", expand=True, padx=(0, 5))
+        ctk.CTkButton(btn_box, text="Отмена", fg_color="#64748B", hover_color="#475569", command=self.destroy).pack(side="right", expand=True, padx=(5, 0))
+
+    def do_register(self):
+        fio = self.ent_fio.get().strip()
+        login = self.ent_login.get().strip()
+        password = self.ent_password.get().strip()
+
+        if not fio or not login or not password:
+            messagebox.showwarning("Ошибка", "Заполните все поля!", parent=self)
+            return
+
+        try:
+            ok, msg = self.db.register_user(fio, login, password)
+            if ok:
+                messagebox.showinfo("Успех", msg, parent=self)
+                self.destroy()
+            else:
+                messagebox.showwarning("Ошибка", msg, parent=self)
+        except Exception as e:
+            messagebox.showerror("Ошибка БД", str(e), parent=self)
+
+class LoginWindow(ctk.CTk):
+    def __init__(self, db):
+        super().__init__()
+        self.db = db
+        self.title("DriveFlow — Вход и регистрация")
+        self.geometry("400x320")
+        self.resizable(False, False)
+        self.init_ui()
+
+    def init_ui(self):
+        card = ctk.CTkFrame(self, corner_radius=15, fg_color="white", border_width=1, border_color="#CBD5E1")
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+
+        ctk.CTkLabel(card, text="DriveFlow", font=("Segoe UI", 28, "bold"), text_color="#1D4ED8").pack(pady=(15, 2))
+        ctk.CTkLabel(card, text="Система автоматизации автошколы", font=("Segoe UI", 12), text_color="#475569").pack(pady=(0, 20))
+
+        self.ent_login = ctk.CTkEntry(card, width=300, height=36, placeholder_text="Введите логин")
+        self.ent_login.pack(pady=6)
+
+        self.ent_password = ctk.CTkEntry(card, width=300, height=36, placeholder_text="Введите пароль", show="*")
+        self.ent_password.pack(pady=6)
+
+        btn_box = ctk.CTkFrame(card, fg_color="transparent")
+        btn_box.pack(pady=20, padx=30, fill="x")
+
+        ctk.CTkButton(btn_box, text="Войти", height=36, fg_color="#1D4ED8", hover_color="#1E40AF", font=("Segoe UI", 13, "bold"), command=self.handle_login).pack(side="left", expand=True, fill="x", padx=(0, 6))
+        ctk.CTkButton(btn_box, text="Регистрация", height=36, fg_color="#475569", hover_color="#334155", font=("Segoe UI", 13, "bold"), command=self.open_register).pack(side="right", expand=True, fill="x", padx=(6, 0))
+
+    def open_register(self):
+        RegisterDialog(self, self.db)
 
     def handle_login(self):
         login = self.ent_login.get().strip()
@@ -113,7 +169,7 @@ class LoginWindow(tk.Tk):
         try:
             user = self.db.check_auth(login, password)
             if user:
-                role_id, fio = user, user
+                role_id, fio = user
                 self.destroy()
                 main_app = MainWindow(self.db, role_id, fio)
                 main_app.mainloop()
@@ -121,153 +177,160 @@ class LoginWindow(tk.Tk):
                 messagebox.showwarning("Ошибка входа", "Неверный логин или пароль!")
         except Exception as e:
             messagebox.showerror("Ошибка подключения", f"Не удалось подключиться к БД:\n{e}")
-class MainWindow(tk.Tk):
+
+class MainWindow(ctk.CTk):
     def __init__(self, db, role_id, user_fio):
         super().__init__()
         self.db = db
         self.role_id = role_id
         self.user_fio = user_fio
-        self.students_cache = []
+        self.students_map = {}
 
         self.title("DriveFlow — Автоматизация работы автошколы")
-        self.geometry("920x550")
-
-        style = ttk.Style(self)
-        if "clam" in style.theme_names():
-            style.theme_use("clam")
-
+        self.after(0, lambda: self.state("zoomed"))
         self.init_ui()
         self.refresh_all_data()
 
     def init_ui(self):
-        self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=(10, 0))
+        # Контрастная верхняя шапка для отличной читаемости на проекторе
+        header = ctk.CTkFrame(self, height=55, corner_radius=0, fg_color="#1E3A8A")
+        header.pack(fill="x")
+        ctk.CTkLabel(header, text="DriveFlow", font=("Segoe UI", 22, "bold"), text_color="white").pack(side="left", padx=20, pady=10)
+        
+        role_title = "Администратор (Полный доступ)" if self.role_id == 1 else "Менеджер (Ограниченный доступ)"
+        ctk.CTkLabel(header, text=f"Сотрудник: {self.user_fio}  |  {role_title}", font=("Segoe UI", 13, "bold"), text_color="#DBEAFE").pack(side="right", padx=20)
 
-        # ВКЛАДКА 1: УЧЕНИКИ (CRUD)
-        tab_students = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(tab_students, text="Ученики (CRUD)")
+        # Четкая светлая таблица с крупным шрифтом
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Treeview", background="white", foreground="#0F172A", fieldbackground="white", rowheight=32, font=("Segoe UI", 11))
+        style.configure("Treeview.Heading", background="#EFF6FF", foreground="#1E3A8A", font=("Segoe UI", 11, "bold"))
+        style.map("Treeview", background=[("selected", "#2563EB")], foreground=[("selected", "white")])
 
-        toolbar = ttk.Frame(tab_students)
-        toolbar.pack(fill=tk.X, pady=(0, 10))
+        self.tabview = ctk.CTkTabview(self, segmented_button_selected_color="#1D4ED8", segmented_button_selected_hover_color="#1E40AF")
+        self.tabview.pack(fill="both", expand=True, padx=15, pady=10)
 
-        ttk.Button(toolbar, text="+ Добавить ученика", command=self.open_add_student).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(toolbar, text="Редактировать", command=self.open_edit_student).pack(side=tk.LEFT, padx=5)
-        self.btn_delete = ttk.Button(toolbar, text="Удалить", command=self.delete_student)
-        self.btn_delete.pack(side=tk.LEFT, padx=5)
-        ttk.Button(toolbar, text="Обновить", command=self.refresh_all_data).pack(side=tk.RIGHT)
+        tab_st = self.tabview.add("Ученики (CRUD)")
+        tab_biz = self.tabview.add("Бизнес-процессы")
+        tab_adm = self.tabview.add("Администрирование")
+
+        # --- ВКЛАДКА 1: УЧЕНИКИ ---
+        toolbar = ctk.CTkFrame(tab_st, fg_color="transparent")
+        toolbar.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkButton(toolbar, text="+ Добавить ученика", fg_color="#1D4ED8", hover_color="#1E40AF", font=("Segoe UI", 12, "bold"), command=self.open_add_student).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(toolbar, text="Редактировать", fg_color="#D97706", hover_color="#B45309", font=("Segoe UI", 12, "bold"), command=self.open_edit_student).pack(side="left", padx=8)
+        self.btn_delete = ctk.CTkButton(toolbar, text="Удалить", fg_color="#DC2626", hover_color="#B91C1C", font=("Segoe UI", 12, "bold"), command=self.delete_student)
+        self.btn_delete.pack(side="left", padx=8)
+        ctk.CTkButton(toolbar, text="Обновить", fg_color="#475569", hover_color="#334155", font=("Segoe UI", 12, "bold"), command=self.refresh_all_data).pack(side="right")
 
         cols = ("ID", "ФИО студента", "Телефон", "Паспорт", "Учебная группа")
-        self.tree_students = ttk.Treeview(tab_students, columns=cols, show="headings", selectmode="browse")
+        self.tree_students = ttk.Treeview(tab_st, columns=cols, show="headings", selectmode="browse")
         for col in cols:
             self.tree_students.heading(col, text=col)
-            self.tree_students.column(col, width=150 if col != "ID" else 50)
-        self.tree_students.pack(fill=tk.BOTH, expand=True)
+            self.tree_students.column(col, width=180 if col != "ID" else 60)
+        self.tree_students.pack(fill="both", expand=True)
 
-        # ВКЛАДКА 2: БИЗНЕС-ПРОЦЕССЫ
-        tab_business = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(tab_business, text="Бизнес-процессы")
+        # --- ВКЛАДКА 2: БИЗНЕС-ПРОЦЕССЫ ---
+        bf1 = ctk.CTkFrame(tab_biz, corner_radius=12, fg_color="white", border_width=1, border_color="#CBD5E1")
+        bf1.pack(side="left", fill="both", expand=True, padx=(0, 10), pady=5)
 
-        frame_bf1 = ttk.LabelFrame(tab_business, text="Бизнес-функция №1: Оформление оплаты со скидкой", padding=15)
-        frame_bf1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        ctk.CTkLabel(bf1, text="Бизнес-функция №1: Оплата со скидкой", font=("Segoe UI", 16, "bold"), text_color="#1E3A8A").pack(pady=(15, 15))
+        
+        ctk.CTkLabel(bf1, text="Выберите ученика:", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=25)
+        self.cmb_pay_student = ctk.CTkComboBox(bf1, width=360, state="readonly")
+        self.cmb_pay_student.pack(pady=(2, 12), padx=25, fill="x")
 
-        ttk.Label(frame_bf1, text="Студент:").pack(anchor=tk.W)
-        self.cmb_pay_student = ttk.Combobox(frame_bf1, state="readonly", width=35)
-        self.cmb_pay_student.pack(fill=tk.X, pady=(2, 10))
-
-        ttk.Label(frame_bf1, text="Базовая цена (руб.):").pack(anchor=tk.W)
-        self.ent_base_price = ttk.Entry(frame_bf1)
+        ctk.CTkLabel(bf1, text="Базовая стоимость курса (руб.):", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=25)
+        self.ent_base_price = ctk.CTkEntry(bf1)
         self.ent_base_price.insert(0, "35000")
-        self.ent_base_price.pack(fill=tk.X, pady=(2, 10))
+        self.ent_base_price.pack(pady=(2, 12), padx=25, fill="x")
 
-        ttk.Label(frame_bf1, text="Акция / Скидка:").pack(anchor=tk.W)
-        self.cmb_discount = ttk.Combobox(frame_bf1, state="readonly", width=35)
-        self.cmb_discount.pack(fill=tk.X, pady=(2, 10))
+        ctk.CTkLabel(bf1, text="Применить акцию / скидку:", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=25)
+        self.cmb_discount = ctk.CTkComboBox(bf1, width=360, state="readonly")
+        self.cmb_discount.pack(pady=(2, 15), padx=25, fill="x")
 
-        self.lbl_final_sum = ttk.Label(frame_bf1, text="Итого к оплате: 35000.00 руб.", font=("Segoe UI", 11, "bold"), foreground="#16A34A")
+        self.lbl_final_sum = ctk.CTkLabel(bf1, text="Итого к оплате: 35000.00 руб.", font=("Segoe UI", 16, "bold"), text_color="#047857")
         self.lbl_final_sum.pack(pady=10)
 
-        ttk.Button(frame_bf1, text="Рассчитать сумму", command=self.calculate_discount).pack(fill=tk.X, pady=3)
-        ttk.Button(frame_bf1, text="Провести оплату в БД", command=self.process_payment).pack(fill=tk.X, pady=3)
+        ctk.CTkButton(bf1, text="Рассчитать сумму", fg_color="#475569", hover_color="#334155", font=("Segoe UI", 13, "bold"), command=self.calculate_discount).pack(pady=5, padx=25, fill="x")
+        ctk.CTkButton(bf1, text="Провести оплату в БД", fg_color="#047857", hover_color="#065F46", font=("Segoe UI", 13, "bold"), command=self.process_payment).pack(pady=5, padx=25, fill="x")
 
-        frame_bf2 = ttk.LabelFrame(tab_business, text="Бизнес-функция №2: Запись на вождение (контроль накладок)", padding=15)
-        frame_bf2.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        bf2 = ctk.CTkFrame(tab_biz, corner_radius=12, fg_color="white", border_width=1, border_color="#CBD5E1")
+        bf2.pack(side="right", fill="both", expand=True, padx=(10, 0), pady=5)
 
-        ttk.Label(frame_bf2, text="Студент:").pack(anchor=tk.W)
-        self.cmb_lesson_student = ttk.Combobox(frame_bf2, state="readonly", width=35)
-        self.cmb_lesson_student.pack(fill=tk.X, pady=(2, 8))
+        ctk.CTkLabel(bf2, text="Бизнес-функция №2: Запись на вождение", font=("Segoe UI", 16, "bold"), text_color="#1E3A8A").pack(pady=(15, 15))
 
-        dt_frame = ttk.Frame(frame_bf2)
-        dt_frame.pack(fill=tk.X, pady=5)
+        ctk.CTkLabel(bf2, text="Выберите ученика:", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=25)
+        self.cmb_lesson_student = ctk.CTkComboBox(bf2, width=360, state="readonly")
+        self.cmb_lesson_student.pack(pady=(2, 10), padx=25, fill="x")
 
-        ttk.Label(dt_frame, text="Дата (ГГГГ-ММ-ДД):").grid(row=0, column=0, sticky=tk.W)
-        self.ent_date = ttk.Entry(dt_frame, width=15)
+        dt_row = ctk.CTkFrame(bf2, fg_color="transparent")
+        dt_row.pack(fill="x", padx=25, pady=5)
+        
+        self.ent_date = ctk.CTkEntry(dt_row, placeholder_text="ГГГГ-ММ-ДД")
         self.ent_date.insert(0, date.today().strftime("%Y-%m-%d"))
-        self.ent_date.grid(row=1, column=0, padx=(0, 10))
+        self.ent_date.pack(side="left", expand=True, fill="x", padx=(0, 5))
 
-        ttk.Label(dt_frame, text="Время (ЧЧ:ММ):").grid(row=0, column=1, sticky=tk.W)
-        self.ent_time = ttk.Entry(dt_frame, width=12)
+        self.ent_time = ctk.CTkEntry(dt_row, placeholder_text="ЧЧ:ММ")
         self.ent_time.insert(0, "10:00")
-        self.ent_time.grid(row=1, column=1)
+        self.ent_time.pack(side="right", expand=True, fill="x", padx=(5, 0))
 
-        ttk.Button(frame_bf2, text="Записать на вождение", command=self.book_driving_lesson).pack(fill=tk.X, pady=10)
+        ctk.CTkButton(bf2, text="Записать на вождение (проверка накладок)", fg_color="#1D4ED8", hover_color="#1E40AF", font=("Segoe UI", 13, "bold"), command=self.book_driving_lesson).pack(pady=12, padx=25, fill="x")
 
         l_cols = ("ID", "Студент", "Дата", "Время")
-        self.tree_lessons = ttk.Treeview(frame_bf2, columns=l_cols, show="headings", height=8)
+        self.tree_lessons = ttk.Treeview(bf2, columns=l_cols, show="headings", height=7)
         for col in l_cols:
             self.tree_lessons.heading(col, text=col)
-            self.tree_lessons.column(col, width=90 if col != "ID" else 40)
-        self.tree_lessons.pack(fill=tk.BOTH, expand=True)
+            self.tree_lessons.column(col, width=100 if col != "ID" else 50)
+        self.tree_lessons.pack(fill="both", expand=True, padx=25, pady=(0, 15))
 
-        # ВКЛАДКА 3: АДМИНИСТРИРОВАНИЕ
-        self.tab_admin = ttk.Frame(self.notebook, padding=20)
-        self.notebook.add(self.tab_admin, text="Администрирование")
-
+        # --- ВКЛАДКА 3: АДМИНИСТРИРОВАНИЕ ---
         adm_text = (
             "Панель администратора системы DriveFlow\n\n"
-            "• Полный доступ к удалению записей студентов и платежей\n"
-            "• Управление справочниками инструкторов, автомобилей и тарифов\n"
-            "• Конфигурация подключения к серверу MySQL"
+            "• Полный доступ к удалению записей учеников и финансовых операций\n"
+            "• Контроль целостности базы данных MySQL (10 связанных таблиц)\n"
+            "• Управление ролями сотрудников (Администратор / Менеджер)"
         )
-        ttk.Label(self.tab_admin, text=adm_text, font=("Segoe UI", 11)).pack(anchor=tk.W)
-
-        role_title = "Администратор (Полный доступ)" if self.role_id == 1 else "Менеджер (Ограниченный доступ)"
-        status_bar = ttk.Label(self, text=f"Сотрудник: {self.user_fio}  |  Роль: {role_title}", relief=tk.SUNKEN, anchor=tk.W, padding=5)
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=5)
+        ctk.CTkLabel(tab_adm, text=adm_text, font=("Segoe UI", 15), justify="left").pack(anchor="w", padx=30, pady=30)
 
         if self.role_id != 1:
-            self.notebook.tab(2, state="disabled")
-            self.btn_delete.config(state=tk.DISABLED)
+            self.btn_delete.configure(state="disabled")
+            self.tabview.delete("Администрирование")    
+        
     def refresh_all_data(self):
         try:
-            self.students_cache = self.db.get_all_students()
+            students = self.db.get_all_students()
             for item in self.tree_students.get_children():
                 self.tree_students.delete(item)
 
+            self.students_map = {}
             self.student_combo_map = {}
-            for st in self.students_cache:
+            for st in students:
                 st_id, fio, phone, passport, group_name, _ = st
-                self.tree_students.insert("", tk.END, values=(st_id, fio, phone or "", passport or "", group_name))
+                self.students_map[str(st_id)] = st
+                self.tree_students.insert("", "end", iid=str(st_id), values=(st_id, fio, phone or "", passport or "", group_name))
                 label = f"{fio} ({group_name})"
                 self.student_combo_map[label] = st_id
 
-            st_labels = list(self.student_combo_map.keys())
-            self.cmb_pay_student["values"] = st_labels
-            self.cmb_lesson_student["values"] = st_labels
-            if st_labels:
-                self.cmb_pay_student.current(0)
-                self.cmb_lesson_student.current(0)
+            st_labels = list(self.student_combo_map.keys()) or ["Нет учеников"]
+            self.cmb_pay_student.configure(values=st_labels)
+            self.cmb_lesson_student.configure(values=st_labels)
+            self.cmb_pay_student.set(st_labels)
+            self.cmb_lesson_student.set(st_labels)
 
             self.discount_map = {"Без скидки (0%)": (None, 0)}
             for d_id, d_name, perc in self.db.get_active_discounts():
                 self.discount_map[f"{d_name} (-{perc}%)"] = (d_id, perc)
-            self.cmb_discount["values"] = list(self.discount_map.keys())
-            self.cmb_discount.current(0)
+            disc_labels = list(self.discount_map.keys())
+            self.cmb_discount.configure(values=disc_labels)
+            self.cmb_discount.set(disc_labels)
 
             for item in self.tree_lessons.get_children():
                 self.tree_lessons.delete(item)
             for les in self.db.get_lessons():
                 l_id, st_fio, l_date, l_time, _ = les
-                self.tree_lessons.insert("", tk.END, values=(l_id, st_fio, str(l_date), str(l_time)[:5]))
+                self.tree_lessons.insert("", "end", values=(l_id, st_fio, str(l_date), str(l_time)[:5]))
         except Exception as e:
             messagebox.showerror("Ошибка БД", f"Ошибка загрузки данных:\n{e}")
 
@@ -279,16 +342,16 @@ class MainWindow(tk.Tk):
         if not selected:
             messagebox.showwarning("Внимание", "Выберите ученика в таблице для редактирования!")
             return
-        idx = self.tree_students.index(selected)
-        StudentDialog(self, self.db, student_data=self.students_cache[idx], on_success=self.refresh_all_data)
+        (st_iid,) = selected
+        StudentDialog(self, self.db, student_data=self.students_map[st_iid], on_success=self.refresh_all_data)
 
     def delete_student(self):
         selected = self.tree_students.selection()
         if not selected:
             messagebox.showwarning("Внимание", "Выберите ученика для удаления!")
             return
-        idx = self.tree_students.index(selected)
-        st_id, st_fio = self.students_cache[idx], self.students_cache[idx]
+        (st_iid,) = selected
+        st_id, st_fio, _, _, _, _ = self.students_map[st_iid]
 
         if messagebox.askyesno("Подтверждение", f"Удалить ученика {st_fio}?"):
             try:
@@ -302,7 +365,7 @@ class MainWindow(tk.Tk):
             base = float(self.ent_base_price.get())
             _, perc = self.discount_map[self.cmb_discount.get()]
             final = base - (base * (perc / 100.0))
-            self.lbl_final_sum.config(text=f"Итого к оплате: {final:.2f} руб.")
+            self.lbl_final_sum.configure(text=f"Итого к оплате: {final:.2f} руб.")
             return final
         except ValueError:
             messagebox.showwarning("Ошибка", "Введите корректную базовую стоимость!")
@@ -313,7 +376,7 @@ class MainWindow(tk.Tk):
         if final_amount is None:
             return
         st_label = self.cmb_pay_student.get()
-        if not st_label:
+        if st_label not in self.student_combo_map:
             return
         student_id = self.student_combo_map[st_label]
         discount_id, _ = self.discount_map[self.cmb_discount.get()]
@@ -326,7 +389,7 @@ class MainWindow(tk.Tk):
 
     def book_driving_lesson(self):
         st_label = self.cmb_lesson_student.get()
-        if not st_label:
+        if st_label not in self.student_combo_map:
             return
         student_id = self.student_combo_map[st_label]
         date_str = self.ent_date.get().strip()
@@ -341,3 +404,4 @@ class MainWindow(tk.Tk):
                 messagebox.showwarning("Конфликт расписания", message)
         except Exception as e:
             messagebox.showerror("Ошибка записи", str(e))
+

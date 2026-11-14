@@ -119,9 +119,11 @@ class Database:
             cur.execute(q)
 
         cur.execute("SELECT COUNT(*) FROM Roles;")
-        if cur.fetchone() == 0:
+        (roles_count,) = cur.fetchone()
+        if roles_count == 0:
             cur.execute("INSERT INTO Roles (role_name) VALUES ('Администратор'), ('Менеджер');")
-            cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('admin', 'admin123', 1, 'Смирнов А.В.');")
+            cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('admin1', 'admin123', 1, 'Столяров А.С.');")
+            cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('admin2', 'admin123', 1, 'Нечаев А.Д.');")
             cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('user', 'user123', 2, 'Козлова Е.П.');")
             cur.execute("INSERT INTO Instructors (fio, phone, experience_years) VALUES ('Петров Сергей Иванович', '+79001112233', 12);")
             cur.execute("INSERT INTO Cars (model, gov_number, transmission_type) VALUES ('Hyundai Solaris', 'А123ВС44', 'МКПП');")
@@ -132,7 +134,6 @@ class Database:
         conn.commit()
         cur.close()
         conn.close()
-    
     def check_auth(self, login, password):
         conn = self.get_connection()
         cur = conn.cursor()
@@ -141,6 +142,25 @@ class Database:
         cur.close()
         conn.close()
         return res
+
+    def register_user(self, fio, login, password):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM Users WHERE login = %s;", (login,))
+        (cnt,) = cur.fetchone()
+        if cnt > 0:
+            cur.close()
+            conn.close()
+            return False, "Пользователь с таким логином уже существует!"
+
+        cur.execute(
+            "INSERT INTO Users (login, password_hash, id_role, fio) VALUES (%s, %s, 2, %s);",
+            (login, password, fio)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True, "Регистрация прошла успешно! Теперь вы можете войти."
 
     def get_all_students(self):
         conn = self.get_connection()
@@ -225,12 +245,16 @@ class Database:
             WHERE s.id_student = %s;
         """, (student_id,))
         res = cur.fetchone()
-        if not res or not res:
+        if not res:
             cur.close()
             conn.close()
             return False, "Студент не прикреплен к группе с инструктором!"
 
-        instructor_id = res
+        (instructor_id,) = res
+        if not instructor_id:
+            cur.close()
+            conn.close()
+            return False, "За группой не закреплен инструктор!"
 
         cur.execute("""
             SELECT COUNT(*) FROM DrivingLessons dl
@@ -239,7 +263,7 @@ class Database:
             WHERE g.id_instructor = %s AND dl.lesson_date = %s AND dl.lesson_time = %s AND dl.status != 'Отменено';
         """, (instructor_id, date_str, time_str))
         
-        conflicts = cur.fetchone()
+        (conflicts,) = cur.fetchone()
         if conflicts > 0:
             cur.close()
             conn.close()
