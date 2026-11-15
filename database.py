@@ -123,17 +123,21 @@ class Database:
         if roles_count == 0:
             cur.execute("INSERT INTO Roles (role_name) VALUES ('Администратор'), ('Менеджер');")
             cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('admin1', 'admin123', 1, 'Столяров А.С.');")
-            cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('admin2', 'admin123', 1, 'Нечаев А.Д.');")
+            cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('admin2', 'admin123', 1, 'Завиялов П.Н.');")
             cur.execute("INSERT INTO Users (login, password_hash, id_role, fio) VALUES ('user', 'user123', 2, 'Козлова Е.П.');")
             cur.execute("INSERT INTO Instructors (fio, phone, experience_years) VALUES ('Петров Сергей Иванович', '+79001112233', 12);")
             cur.execute("INSERT INTO Cars (model, gov_number, transmission_type) VALUES ('Hyundai Solaris', 'А123ВС44', 'МКПП');")
             cur.execute("INSERT INTO StudyGroups (group_name, category, id_instructor, id_car, start_date, base_price) VALUES ('Группа Б-101', 'B', 1, 1, '2026-11-01', 35000);")
             cur.execute("INSERT INTO Discounts (discount_name, percentage, is_active) VALUES ('Студенческая', 10, TRUE), ('Приведи друга', 15, TRUE);")
             cur.execute("INSERT INTO Students (fio, phone, passport_data, id_group) VALUES ('Соколов Дмитрий Андреевич', '+79105554433', '3418 654321', 1);")
+            cur.execute("INSERT INTO Instructors (fio, phone, experience_years) VALUES ('Волков Алексей Николаевич', '+79002223344', 8), ('Морозова Елена Викторовна', '+79003334455', 10);")
+            cur.execute("INSERT INTO Cars (model, gov_number, transmission_type) VALUES ('Kia Rio', 'В456ОР44', 'АКПП'), ('Lada Granta', 'Е789КХ44', 'МКПП');")
+            cur.execute("INSERT INTO StudyGroups (group_name, category, id_instructor, id_car, start_date, base_price) VALUES ('Группа Б-102 (АКПП)', 'B', 2, 2, '2026-11-15', 38000), ('Группа А-201', 'A', 3, 3, '2026-12-01', 22000);")
 
         conn.commit()
         cur.close()
         conn.close()
+
     def check_auth(self, login, password):
         conn = self.get_connection()
         cur = conn.cursor()
@@ -281,13 +285,88 @@ class Database:
     def get_lessons(self):
         conn = self.get_connection()
         cur = conn.cursor()
-        cur.execute("""
-            SELECT dl.id_lesson, s.fio, dl.lesson_date, dl.lesson_time, dl.status
+        query = """
+            SELECT dl.id_lesson, s.fio, COALESCE(i.fio, 'Не назначен'), dl.lesson_date, dl.lesson_time
             FROM DrivingLessons dl
             JOIN Students s ON dl.id_student = s.id_student
+            LEFT JOIN StudyGroups g ON s.id_group = g.id_group
+            LEFT JOIN Instructors i ON g.id_instructor = i.id_instructor
             ORDER BY dl.lesson_date DESC, dl.lesson_time DESC;
-        """)
+        """
+        cur.execute(query)
         rows = cur.fetchall()
         cur.close()
         conn.close()
         return rows
+
+    def get_all_users(self):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        query = """
+            SELECT u.id_user, u.fio, u.login, r.role_name
+            FROM Users u
+            JOIN Roles r ON u.id_role = r.id_role
+            ORDER BY u.id_user ASC;
+        """
+        cur.execute(query)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return rows
+
+    def delete_user(self, user_id):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM Users WHERE id_user = %s AND id_role != 1;", (user_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    def update_lesson_safe(self, lesson_id, new_date, new_time):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        # Находим студента и инструктора для этой записи
+        cur.execute("""
+            SELECT g.id_instructor FROM DrivingLessons dl
+            JOIN Students s ON dl.id_student = s.id_student
+            JOIN StudyGroups g ON s.id_group = g.id_group
+            WHERE dl.id_lesson = %s;
+        """, (lesson_id,))
+        res = cur.fetchone()
+        if not res:
+            cur.close()
+            conn.close()
+            return False, "Запись не найдена!"
+
+        (instructor_id,) = res
+        # Проверяем, не занят ли инструктор в новое время (исключая саму текущую запись)
+        cur.execute("""
+            SELECT COUNT(*) FROM DrivingLessons dl
+            JOIN Students s ON dl.id_student = s.id_student
+            JOIN StudyGroups g ON s.id_group = g.id_group
+            WHERE g.id_instructor = %s AND dl.lesson_date = %s AND dl.lesson_time = %s
+              AND dl.id_lesson != %s AND dl.status != 'Отменено';
+        """, (instructor_id, new_date, new_time, lesson_id))
+        (conflicts,) = cur.fetchone()
+        if conflicts > 0:
+            cur.close()
+            conn.close()
+            return False, "Отказ: У инструктора уже есть занятие на это новое время!"
+
+        cur.execute(
+            "UPDATE DrivingLessons SET lesson_date = %s, lesson_time = %s WHERE id_lesson = %s;",
+            (new_date, new_time, lesson_id)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True, "Запись на вождение успешно перенесена!"
+
+    def delete_lesson(self, lesson_id):
+        conn = self.get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM DrivingLessons WHERE id_lesson = %s;", (lesson_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+

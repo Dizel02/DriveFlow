@@ -2,9 +2,7 @@ import customtkinter as ctk
 from tkinter import ttk, messagebox
 from datetime import date
 
-# Светлая тема — максимальная читаемость на проекторе и в отчете
 ctk.set_appearance_mode("light")
-
 
 class StudentDialog(ctk.CTkToplevel):
     def __init__(self, parent, db, student_data=None, on_success=None):
@@ -137,7 +135,8 @@ class LoginWindow(ctk.CTk):
         super().__init__()
         self.db = db
         self.title("DriveFlow — Вход и регистрация")
-        self.geometry("400x320")
+        self.geometry("400x360")
+        self.eval('tk::PlaceWindow . center')
         self.resizable(False, False)
         self.init_ui()
 
@@ -159,6 +158,8 @@ class LoginWindow(ctk.CTk):
 
         ctk.CTkButton(btn_box, text="Войти", height=36, fg_color="#1D4ED8", hover_color="#1E40AF", font=("Segoe UI", 13, "bold"), command=self.handle_login).pack(side="left", expand=True, fill="x", padx=(0, 6))
         ctk.CTkButton(btn_box, text="Регистрация", height=36, fg_color="#475569", hover_color="#334155", font=("Segoe UI", 13, "bold"), command=self.open_register).pack(side="right", expand=True, fill="x", padx=(6, 0))
+
+        ctk.CTkButton(card, text="Выход из программы", height=34, fg_color="#DC2626", hover_color="#B91C1C", font=("Segoe UI", 12, "bold"), command=self.destroy).pack(pady=(0, 15), padx=30, fill="x")
 
     def open_register(self):
         RegisterDialog(self, self.db)
@@ -192,15 +193,15 @@ class MainWindow(ctk.CTk):
         self.refresh_all_data()
 
     def init_ui(self):
-        # Контрастная верхняя шапка для отличной читаемости на проекторе
+
         header = ctk.CTkFrame(self, height=55, corner_radius=0, fg_color="#1E3A8A")
         header.pack(fill="x")
         ctk.CTkLabel(header, text="DriveFlow", font=("Segoe UI", 22, "bold"), text_color="white").pack(side="left", padx=20, pady=10)
         
+        ctk.CTkButton(header, text="Выйти", width=80, height=30, fg_color="#DC2626", hover_color="#B91C1C", font=("Segoe UI", 12, "bold"), command=self.logout).pack(side="right", padx=(0, 20), pady=12)
         role_title = "Администратор (Полный доступ)" if self.role_id == 1 else "Менеджер (Ограниченный доступ)"
-        ctk.CTkLabel(header, text=f"Сотрудник: {self.user_fio}  |  {role_title}", font=("Segoe UI", 13, "bold"), text_color="#DBEAFE").pack(side="right", padx=20)
+        ctk.CTkLabel(header, text=f"Сотрудник: {self.user_fio}  |  {role_title}", font=("Segoe UI", 13, "bold"), text_color="#DBEAFE").pack(side="right", padx=15)
 
-        # Четкая светлая таблица с крупным шрифтом
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview", background="white", foreground="#0F172A", fieldbackground="white", rowheight=32, font=("Segoe UI", 11))
@@ -278,25 +279,43 @@ class MainWindow(ctk.CTk):
 
         ctk.CTkButton(bf2, text="Записать на вождение (проверка накладок)", fg_color="#1D4ED8", hover_color="#1E40AF", font=("Segoe UI", 13, "bold"), command=self.book_driving_lesson).pack(pady=12, padx=25, fill="x")
 
-        l_cols = ("ID", "Студент", "Дата", "Время")
+        l_cols = ("ID", "Студент", "Инструктор", "Дата", "Время")
         self.tree_lessons = ttk.Treeview(bf2, columns=l_cols, show="headings", height=7)
+        col_widths = {"ID": 35, "Студент": 150, "Инструктор": 150, "Дата": 85, "Время": 60}
         for col in l_cols:
             self.tree_lessons.heading(col, text=col)
-            self.tree_lessons.column(col, width=100 if col != "ID" else 50)
-        self.tree_lessons.pack(fill="both", expand=True, padx=25, pady=(0, 15))
+            self.tree_lessons.column(col, width=col_widths[col], anchor="center" if col in ("ID", "Дата", "Время") else "w")
+
+        self.tree_lessons.pack(fill="both", expand=True, padx=(0, 15), pady=(0, 8))
+        l_btn_row = ctk.CTkFrame(bf2, fg_color="transparent")
+        l_btn_row.pack(fill="x", padx=25, pady=(0, 15))
+        ctk.CTkButton(l_btn_row, text="Перенести на указанное время", fg_color="#D97706", hover_color="#B45309", font=("Segoe UI", 12, "bold"), command=self.edit_driving_lesson).pack(side="left", expand=True, fill="x", padx=(0, 5))
+        self.btn_delete_lesson = ctk.CTkButton(l_btn_row, text="Удалить запись", fg_color="#DC2626", hover_color="#B91C1C", font=("Segoe UI", 12, "bold"), command=self.remove_driving_lesson)
+        self.btn_delete_lesson.pack(side="right", expand=True, fill="x", padx=(5, 0))
+
 
         # --- ВКЛАДКА 3: АДМИНИСТРИРОВАНИЕ ---
-        adm_text = (
-            "Панель администратора системы DriveFlow\n\n"
-            "• Полный доступ к удалению записей учеников и финансовых операций\n"
-            "• Контроль целостности базы данных MySQL (10 связанных таблиц)\n"
-            "• Управление ролями сотрудников (Администратор / Менеджер)"
-        )
-        ctk.CTkLabel(tab_adm, text=adm_text, font=("Segoe UI", 15), justify="left").pack(anchor="w", padx=30, pady=30)
+        adm_bar = ctk.CTkFrame(tab_adm, fg_color="transparent")
+        adm_bar.pack(fill="x", pady=(0, 10))
+        ctk.CTkLabel(adm_bar, text="Зарегистрированные сотрудники системы:", font=("Segoe UI", 15, "bold"), text_color="#1E3A8A").pack(side="left")
+        ctk.CTkButton(adm_bar, text="Удалить менеджера", fg_color="#DC2626", hover_color="#B91C1C", font=("Segoe UI", 12, "bold"), command=self.delete_selected_user).pack(side="right")
+
+        u_cols = ("ID", "ФИО сотрудника", "Логин", "Роль в системе")
+        self.tree_users = ttk.Treeview(tab_adm, columns=u_cols, show="headings", selectmode="browse")
+        for col in u_cols:
+            self.tree_users.heading(col, text=col)
+            self.tree_users.column(col, width=180 if col != "ID" else 60)
+        self.tree_users.pack(fill="both", expand=True)
 
         if self.role_id != 1:
             self.btn_delete.configure(state="disabled")
-            self.tabview.delete("Администрирование")    
+            self.btn_delete_lesson.configure(state="disabled")
+            self.tabview.delete("Администрирование")
+
+    def logout(self):
+        self.destroy()
+        login_win = LoginWindow(self.db)
+        login_win.mainloop() 
         
     def refresh_all_data(self):
         try:
@@ -316,21 +335,28 @@ class MainWindow(ctk.CTk):
             st_labels = list(self.student_combo_map.keys()) or ["Нет учеников"]
             self.cmb_pay_student.configure(values=st_labels)
             self.cmb_lesson_student.configure(values=st_labels)
-            self.cmb_pay_student.set(st_labels)
-            self.cmb_lesson_student.set(st_labels)
+            self.cmb_pay_student.set(st_labels[0])
+            self.cmb_lesson_student.set(st_labels[0])
 
             self.discount_map = {"Без скидки (0%)": (None, 0)}
             for d_id, d_name, perc in self.db.get_active_discounts():
                 self.discount_map[f"{d_name} (-{perc}%)"] = (d_id, perc)
             disc_labels = list(self.discount_map.keys())
             self.cmb_discount.configure(values=disc_labels)
-            self.cmb_discount.set(disc_labels)
-
+            self.cmb_discount.set(disc_labels[0])
+            
             for item in self.tree_lessons.get_children():
                 self.tree_lessons.delete(item)
             for les in self.db.get_lessons():
-                l_id, st_fio, l_date, l_time, _ = les
-                self.tree_lessons.insert("", "end", values=(l_id, st_fio, str(l_date), str(l_time)[:5]))
+                l_id, st_fio, inst_fio, l_date, l_time = les
+                self.tree_lessons.insert("", "end", values=(l_id, st_fio, inst_fio, str(l_date), str(l_time)[:5]))
+
+            if self.role_id == 1:
+                for item in self.tree_users.get_children():
+                    self.tree_users.delete(item)
+                for u_id, u_fio, u_login, u_role in self.db.get_all_users():
+                    self.tree_users.insert("", "end", iid=str(u_id), values=(u_id, u_fio, u_login, u_role))
+
         except Exception as e:
             messagebox.showerror("Ошибка БД", f"Ошибка загрузки данных:\n{e}")
 
@@ -405,3 +431,48 @@ class MainWindow(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Ошибка записи", str(e))
 
+    def delete_selected_user(self):
+        selected = self.tree_users.selection()
+        if not selected:
+         messagebox.showwarning("Внимание", "Выберите сотрудника в таблице!")
+         return
+        (u_iid,) = selected
+        vals = self.tree_users.item(u_iid, "values")
+        if vals[3] == "Администратор":
+            messagebox.showwarning("Защита", "Нельзя удалить учетную запись Администратора!")
+            return
+        if messagebox.askyesno("Подтверждение", f"Удалить учетную запись менеджера {vals[1]}?"):
+            self.db.delete_user(int(u_iid))
+            self.refresh_all_data()
+
+    def edit_driving_lesson(self):
+        selected = self.tree_lessons.selection()
+        if not selected:
+            messagebox.showwarning("Внимание", "Выберите запись в таблице расписания для переноса!")
+            return
+        (item_id,) = selected
+        lesson_id_str, _, _, _, _ = self.tree_lessons.item(item_id, "values")
+        lesson_id = int(lesson_id_str)
+        new_date = self.ent_date.get().strip()
+        new_time = self.ent_time.get().strip() + ":00"
+
+        try:
+            ok, msg = self.db.update_lesson_safe(lesson_id, new_date, new_time)
+            if ok:
+                messagebox.showinfo("Перенесено", msg)
+                self.refresh_all_data()
+            else:
+                messagebox.showwarning("Конфликт расписания", msg)
+        except Exception as e:
+            messagebox.showerror("Ошибка переноса", str(e))
+
+    def remove_driving_lesson(self):
+        selected = self.tree_lessons.selection()
+        if not selected:
+            messagebox.showwarning("Внимание", "Выберите запись в таблице расписания для удаления!")
+            return
+        (item_id,) = selected
+        lesson_id_str, st_fio, _, _, _ = self.tree_lessons.item(item_id, "values")
+        if messagebox.askyesno("Подтверждение", f"Отменить и удалить занятие ученика {st_fio}?"):
+            self.db.delete_lesson(int(lesson_id_str))
+            self.refresh_all_data()
